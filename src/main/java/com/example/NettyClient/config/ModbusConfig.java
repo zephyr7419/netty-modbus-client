@@ -1,9 +1,9 @@
 package com.example.NettyClient.config;
 
-import com.example.NettyClient.util.modbus.ModbusBusiness;
 import com.example.NettyClient.service.ModbusMasterManager;
 import com.example.NettyClient.util.InfluxManager;
 import com.example.NettyClient.util.modbus.AddressToTopicMapper;
+import com.example.NettyClient.util.modbus.ModbusBusiness;
 import com.example.NettyClient.util.modbus.ValueTransformer;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -12,6 +12,16 @@ import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler;
 
 @Configuration
 public class ModbusConfig {
+
+    @Bean
+    public ValueTransformer valueTransformer() {
+        return new ValueTransformer();
+    }
+
+    @Bean
+    public AddressToTopicMapper addressToTopicMapper() {
+        return new AddressToTopicMapper();
+    }
 
     @Bean
     public TaskScheduler taskScheduler(){

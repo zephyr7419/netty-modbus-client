@@ -1,12 +1,10 @@
 package com.example.NettyClient.util.modbus;
 
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.stereotype.Component;
 
 import java.util.function.Function;
 
 @Slf4j
-@Component
 public class ValueTransformer {
 
     public Object transformValue(int address, int rawValue) {
