@@ -1,0 +1,16 @@
+modbus:
+  address: 0x1102
+  values:
+    value: 0x0096
+mqtt:
+  server-url: tcp://localhost:1883
+  client-id: test
+  topic: application/#
+
+influxdb:
+  url: http://localhost:8086
+  user: zephyr
+  password: zephyr7419
+  org: Musma
+  bucket: modbus-client
+  token: 0FQPbYlJ1rqHKpOyFxEWFn1bJ2VwigmTxJFry25I-zkeCaNIKF0J-xMunZBrHBLTx0H3mlzk09ov93qtOTpCBA==
