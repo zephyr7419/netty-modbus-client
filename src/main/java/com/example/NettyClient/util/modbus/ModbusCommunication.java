@@ -13,17 +13,17 @@ import java.util.concurrent.TimeUnit;
 
 @Slf4j
 @RequiredArgsConstructor
-@Component
+//@Component
 public class ModbusCommunication {
-    private final String[] deviceIps = {"127.0.0.1", /* 해당 부분은 13대의 기기 ip가 올 예정*/};
-    private final int port = 502; // 기본 포트가 502입니다.
+    private final String[] deviceIps = {"172.30.1.233", /* 해당 부분은 13대의 기기 ip가 올 예정*/};
+    private final int port = 5300; // 기본 포트가 502입니다.
     private final TaskSchedulingService taskSchedulingService;
     private final ModbusBusiness modbusBusiness;
     private final TaskScheduler taskScheduler;
     private final ModbusMasterManager modbusMasterManager;
     private final Bootstrap bootstrap;
 
-    @PostConstruct
+//    @PostConstruct
     public void initializeResources() {
         for (String deviceIp : deviceIps) {
             modbusMasterManager.getMaster(deviceIp);

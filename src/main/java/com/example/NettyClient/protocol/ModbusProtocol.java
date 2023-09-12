@@ -12,7 +12,7 @@ import java.util.function.Function;
 import static com.example.NettyClient.handler.ModbusReqHandler.calculateCRC;
 
 @Slf4j
-//@Component
+@Component
 public class ModbusProtocol {
 
     public Function<ReadRequestParameters, byte[]> getReadRequest = readRequestParameters -> {

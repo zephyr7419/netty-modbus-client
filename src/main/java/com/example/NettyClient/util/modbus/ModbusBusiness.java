@@ -2,14 +2,17 @@ package com.example.NettyClient.util.modbus;
 
 import com.example.NettyClient.service.ModbusMasterManager;
 import com.example.NettyClient.util.InfluxManager;
+import com.ghgande.j2mod.modbus.Modbus;
 import com.ghgande.j2mod.modbus.facade.ModbusTCPMaster;
 import com.ghgande.j2mod.modbus.procimg.Register;
 import com.ghgande.j2mod.modbus.procimg.SimpleRegister;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 
+@Slf4j
 @RequiredArgsConstructor
 public class ModbusBusiness {
 
@@ -19,9 +22,11 @@ public class ModbusBusiness {
     private final InfluxManager influxManager;
 
     public void readAndProcessRegisters(ModbusTCPMaster master, int startAddress, int count) throws Exception {
-        Register[] registers = master.readMultipleRegisters(startAddress, count);
+        log.info("connected: {}", master.isConnected());
+        Register[] registers = master.readMultipleRegisters(Modbus.DEFAULT_UNIT_ID, startAddress, count);
         for (Register register : registers) {
             int rawValue = register.getValue();
+            log.info("register: {}", register);
             Object transformedValue = valueTransformer.transformValue(startAddress, rawValue);
             String topic = addressToTopicMapper.mapAddressToTopic(startAddress);
             influxManager.saveDataToInfluxDB(topic, transformedValue);
@@ -40,7 +45,7 @@ public class ModbusBusiness {
     public byte[] readData(String deviceIp) throws Exception {
         ModbusTCPMaster master = modbusMasterManager.getMaster(deviceIp);
         ByteBuffer byteBuffer = ByteBuffer.allocate(1024);
-        // 여기서도 readAndProcessRegisters를 재사용할 수 있지만, 다른 처리를 하기 때문에 루프를 별도로 작성했습니다.
+        // 여기서도 readAndProcessRegisters 를 재사용할 수 있지만, 다른 처리를 하기 때문에 루프를 별도로 작성했습니다.
         Register[] registers = master.readMultipleRegisters(0x0000, 8);
         for (Register register : registers) {
             int rawValue = register.getValue();

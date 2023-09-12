@@ -1,22 +1,21 @@
 package com.example.NettyClient.handler;
 
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Component;
 
 @Slf4j
+//@Component
 public class ModbusRespHandler {
 
     public static void handleResponse(byte[] response) {
-        int funcCode = response[1];
-        int byteCount = response[2];
+        StringBuilder hexString = new StringBuilder();
 
-        if (funcCode >= 0x80) {
-            int exceptionCode = response[2];
-            return;
+        for (byte b : response) {
+            // Convert each byte to a 2-digit hexadecimal representation
+            String hex = String.format("%02X", b & 0xFF);
+            hexString.append(hex);
         }
 
-        for (int i = 0; i < byteCount / 2; i++) {
-            int value = ((response[3 + i * 2] & 0xFF) << 8) | (response[4 + i * 2] & 0xFF);
-            log.info("value: {}", value);
-        }
+        log.info("Received data in hexadecimal format: {}", hexString.toString());
     }
 }

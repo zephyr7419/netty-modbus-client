@@ -1,6 +1,5 @@
 package com.example.NettyClient.service;
 
-import com.example.NettyClient.service.ModbusTCPMasterFactory;
 import com.ghgande.j2mod.modbus.facade.ModbusTCPMaster;
 import org.springframework.stereotype.Service;
 
@@ -19,7 +18,7 @@ public class ModbusMasterManager {
 
     public ModbusTCPMaster getMaster(String deviceIp) {
         if (!masterMap.containsKey(deviceIp)) {
-            ModbusTCPMaster master = new ModbusTCPMaster(deviceIp, 502);
+            ModbusTCPMaster master = new ModbusTCPMaster(deviceIp, 5300);
             try {
                 master.connect();
             } catch (Exception e) {

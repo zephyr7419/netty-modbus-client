@@ -1,18 +1,17 @@
-package com.example.NettyClient.decoder;
+package com.example.NettyClient.config.netty;
 
 import io.netty.buffer.ByteBuf;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.codec.ByteToMessageDecoder;
 import io.netty.util.ReferenceCountUtil;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Component;
 
 import java.util.List;
 
 @Slf4j
-//@Component
-//@RequiredArgsConstructor
-public class ClientDecoder extends ByteToMessageDecoder {
-
+@Component
+public class ModbusRTUDecoder extends ByteToMessageDecoder {
     @Override
     protected void decode(ChannelHandlerContext ctx, ByteBuf in, List<Object> out) throws Exception {
         if (in.readableBytes() >= 8) {

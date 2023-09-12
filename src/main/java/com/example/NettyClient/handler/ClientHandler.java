@@ -1,5 +1,6 @@
 package com.example.NettyClient.handler;
 
+import io.netty.buffer.ByteBuf;
 import io.netty.channel.ChannelHandler;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
@@ -8,8 +9,8 @@ import org.springframework.stereotype.Component;
 
 
 @Slf4j
-@Component
-@ChannelHandler.Sharable
+//@Component
+//@ChannelHandler.Sharable
 public class ClientHandler extends ChannelInboundHandlerAdapter {
 //    private static final int YOUR_FUNCTION_CODE_FOR_7_BYTES = 0x03;
 //    private static final int YOUR_FUNCTION_CODE_FOR_8_BYTES = 0x10;
@@ -21,12 +22,12 @@ public class ClientHandler extends ChannelInboundHandlerAdapter {
 //    @Value("${modbus.values.value}")
 //    private int value;
 //
-//    private final ModbusReqHandler modbusReqHandler;
+    private final ModbusRespHandler modbusRespHandler;
 //    private static final byte[] DUMMY_BYTE_VALUE = {0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08};
 //
-//    public ClientHandler(ModbusReqHandler modbusReqHandler) {
-//        this.modbusReqHandler = modbusReqHandler;
-//    }
+    public ClientHandler(ModbusRespHandler modbusRespHandler) {
+        this.modbusRespHandler = modbusRespHandler;
+    }
 //
 //    @Override
 //    public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) throws Exception {
@@ -54,7 +55,15 @@ public class ClientHandler extends ChannelInboundHandlerAdapter {
 
     @Override
     public void channelRead(ChannelHandlerContext ctx, Object msg) throws Exception {
+        ByteBuf in = (ByteBuf) msg;
+        try {
+            byte[] response = new byte[in.readableBytes()];
+            in.readBytes(response);
 
+            ModbusRespHandler.handleResponse(response);
+        } finally {
+            in.release();
+        }
     }
 
 //    private int getPacketLengthByFunctionCode(int functionCode) {
