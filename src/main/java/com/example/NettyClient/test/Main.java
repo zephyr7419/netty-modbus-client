@@ -2,7 +2,6 @@ package com.example.NettyClient.test;
 
 import io.netty.bootstrap.Bootstrap;
 import io.netty.buffer.ByteBuf;
-import io.netty.buffer.Unpooled;
 import io.netty.channel.*;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.SocketChannel;
@@ -13,8 +12,6 @@ import io.netty.util.ReferenceCountUtil;
 import lombok.extern.slf4j.Slf4j;
 import org.jetbrains.annotations.NotNull;
 
-import java.nio.ByteBuffer;
-import java.util.Arrays;
 import java.util.List;
 
 @Slf4j
@@ -44,7 +41,6 @@ public class Main {
 
         return crcBytes;
     }
-
 
     private static int[] parseRegisterValue(byte[] data, int startIndex, int byteCount) {
         // 데이터를 파싱하는 로직을 여기에 추가하세요.
@@ -91,7 +87,7 @@ public class Main {
             if (channel.isActive()) {
                 // 연결 성공 로그
                 log.info("Connected to : {} : {}", SERVER_HOST, SERVER_PORT);
-                byte[] modbusRequest = buildModbusRequest(0x0300, 0x004);
+                byte[] modbusRequest = buildModbusRequest(0x0300, 0x0001);
                 ByteBuf buf = channel.alloc().buffer();
                 buf.writeBytes(modbusRequest);
 
@@ -103,15 +99,14 @@ public class Main {
 
         } catch (InterruptedException e) {
             e.printStackTrace();
-        } finally {
-            group.shutdownGracefully();
         }
+
     }
 
     private static byte[] buildModbusRequest(int address, int quantity) {
         byte[] a1 = new byte[6];
         a1[0] = 1;
-        a1[1] = 4;
+        a1[1] = 6;
         a1[2] = (byte) ((address >> 8) & 0xFF);
         a1[3] = (byte) (address & 0xFF);
         a1[4] = (byte) ((quantity >> 8) & 0xFF);
@@ -120,7 +115,7 @@ public class Main {
         byte[] crc16Modbus = calculateCRC16Modbus(a1);
         byte[] a2 = new byte[8];
         a2[0] = 1;
-        a2[1] = 4;
+        a2[1] = 6;
         a2[2] = (byte) ((address >> 8) & 0xFF);
         a2[3] = (byte) (address & 0xFF);
         a2[4] = (byte) ((quantity >> 8) & 0xFF);
@@ -194,21 +189,21 @@ public class Main {
 
             // 데이터에 따라 파싱하여 로그 출력
             switch (dataStartIndex) {
-                case 3: // 첫 번째 값
-                    log.info("인버터 용량: {},0x{}" , formatInverterCapacity(value), Integer.toHexString(value));
-                    break;
-                case 5: // 두 번째 값
-                    log.info("인버터 입력 전압/전원형태: {}, 0x{}" ,formatInputVoltage(value), Integer.toHexString(value));
-                    break;
-                case 7: // 세 번째 값
-                    log.info("인버터 S/W 버전: {}, 0x{}" ,formatSoftwareVersion(value), Integer.toHexString(value));
-                    break;
-                case 9: // 네 번째 값
-                    log.info("인버터 용량: {}, 0x{}" ,formatHP(value), Integer.toHexString(value));
-                    break;
-                default:
-                    // 추가 파싱이 필요한 경우 여기에 추가합니다.
-                    break;
+                case 3 -> // 첫 번째 값
+                        log.info("인버터 용량: {},0x{}", formatInverterCapacity(value), Integer.toHexString(value));
+                case 5 -> // 두 번째 값
+                        log.info("인버터 입력 전압/전원형태: {}, 0x{}", formatInputVoltage(value), Integer.toHexString(value));
+                case 7 -> // 세 번째 값
+                        log.info("인버터 S/W 버전: {}, 0x{}", formatSoftwareVersion(value), Integer.toHexString(value));
+                case 9 -> // 네 번째 값
+                        log.info("인버터 용량: {}, 0x{}", formatHP(value), Integer.toHexString(value));
+                case 11 ->
+                    log.info("운전상태 : {}, {}", runStatus(value), Integer.toHexString(value));
+                case 13 ->
+                    log.info("운전, 주파수 지령 소스: {}, {}", runAndFrequencyResource(value), Integer.toHexString(value) );
+                default -> {
+                }
+                // 추가 파싱이 필요한 경우 여기에 추가합니다.
             }
 
             // 데이터 인덱스를 2바이트씩 증가시킴
@@ -228,21 +223,13 @@ public class Main {
 
     private static String formatInverterCapacity(int value) {
         // 인버터 용량을 계산하여 반환
-        String capacity;
-        switch (value) {
-            case 0x4008:
-                capacity = "0.75kW";
-                break;
-            case 0x4015:
-                capacity = "1.5kW";
-                break;
-            case 0x40f0:
-                capacity = "15kW";
-                break;
+        String capacity = switch (value) {
+            case 0x4008 -> "0.75kW";
+            case 0x4015 -> "1.5kW";
+            case 0x40f0 -> "15kW";
             // 다른 용량에 대한 처리 추가
-            default:
-                capacity = "Unknown Capacity";
-        }
+            default -> "Unknown Capacity";
+        };
         return capacity;
     }
 
@@ -250,17 +237,12 @@ public class Main {
         // 입력 전압/전원 형태를 계산하여 반환
         String voltageType;
         String hexValue = Integer.toHexString(value);
-        switch (value) {
-            case 0x0231:
-                voltageType = "200V 3상 강냉식";
-                break;
-            case 0x0431:
-                voltageType = "400V 3상 강냉식";
-                break;
+        voltageType = switch (value) {
+            case 0x0231 -> "200V 3상 강냉식";
+            case 0x0431 -> "400V 3상 강냉식";
             // 다른 전압/전원 형태에 대한 처리 추가
-            default:
-                voltageType = "Unknown Voltage/Power Type";
-        }
+            default -> "Unknown Voltage/Power Type";
+        };
         return voltageType;
     }
 
@@ -268,17 +250,12 @@ public class Main {
         // S/W 버전을 계산하여 반환
         String version;
         String hexValue = Integer.toHexString(value);
-        switch (value) {
-            case 0x0064:
-                version = "version 1.00";
-                break;
-            case 0x0065:
-                version = "version 1.01";
-                break;
+        version = switch (value) {
+            case 0x0064 -> "version 1.00";
+            case 0x0065 -> "version 1.01";
             // 다른 버전에 대한 처리 추가
-            default:
-                version = "Unknown Version";
-        }
+            default -> "Unknown Version";
+        };
         return version;
     }
 
@@ -300,6 +277,84 @@ public class Main {
                 version = "Unknown Version";
         }
         return version;
+    }
+
+    private static String[] runStatus(int value) {
+        // S/W 버전을 계산하여 반환
+        int b15to12 = (value >> 12) & 0xF;
+        int b11to8 = (value >> 8) & 0xF;
+        int b7to4 = (value >> 4) & 0xF;
+        int b3to0 = value & 0xF;
+        String[] status = new String[4];
+        String hexValue = Integer.toHexString(value);
+
+        switch (b15to12) {
+            case 0x00 -> status[0] =  "정상 상태";
+            case 0x04 -> status[0] =  "Warning 발생 상태";
+            case 0x08 -> status[0] =  "Fault 발생 상태";
+            default -> status[0] = "Unknown Version";
+        }
+
+        switch (b7to4) {
+            case 0x01 -> status[2] = "속도 서치 중";
+            case 0x02 -> status[2] = "가속 중";
+            case 0x03 -> status[2] = "정속 중";
+
+            // 다른 버전에 대한 처리 추가
+            case 0x04 -> status[2] = "감속 중";
+            case 0x05 -> status[2] = "감속 정지 중";
+            case 0x06 -> status[2] = "H/W 전류 억제";
+            case 0x07 -> status[2] = "S/W 전류 억제";
+            case 0x08 -> status[2] = "드웰 운전 중";
+            default -> status[2] = "Unknown Version";
+        }
+
+        switch (b3to0) {
+            case 0x00 -> status[3] = "정지";
+            case 0x01 -> status[3] = "정방향 운전 중";
+            case 0x02 -> status[3] = "역방향 운전 중";
+
+            // 다른 버전에 대한 처리 추가
+            case 0x03 -> status[3] = "DC 운전 중";
+            default -> status[3] = "Unknown Version";
+        }
+
+        return status;
+    }
+
+    private static String[] runAndFrequencyResource(int value) {
+        // S/W 버전을 계산하여 반환
+        int b15to8 = (value >> 8) & 0xF;
+        int b7to0 = value >> 4;
+
+        String[] runAndFrequencyResource = new String[2];
+        String hexValue = Integer.toHexString(value);
+
+        switch (b15to8) {
+            case 0x00 -> runAndFrequencyResource[0] =  "키패드";
+            case 0x01 -> runAndFrequencyResource[0] =  "통신 옵션";
+            case 0x03 -> runAndFrequencyResource[0] =  "내장형 485";
+            case 0x04 -> runAndFrequencyResource[0] =  "단자대";
+            default -> runAndFrequencyResource[0] = "Unknown Version";
+        }
+
+        switch (b7to0) {
+            case 0x00 -> runAndFrequencyResource[1] = "키패드 속도";
+            case 0x02, 0x04, 0x03 -> runAndFrequencyResource[1] = "Up/Down 운전 속도";
+            case 0x05 -> runAndFrequencyResource[1] = "V1";
+            case 0x07 -> runAndFrequencyResource[1] = "V2";
+            case 0x08 -> runAndFrequencyResource[1] = "I2";
+            case 0x09 -> runAndFrequencyResource[1] = "Pulse";
+            case 0x10 -> runAndFrequencyResource[1] = "내장형 485";
+            case 0x11 -> runAndFrequencyResource[1] = "통신 옵션";
+            case 0x13 -> runAndFrequencyResource[1] = "Jog";
+            case 0x14 -> runAndFrequencyResource[1] = "PID";
+            case 0x25, 0x26, 0x27, 0x28, 0x29, 0x30, 0x31 -> runAndFrequencyResource[1] = "다단속 주파수";
+            default -> runAndFrequencyResource[1] = "Unknown Version";
+        }
+
+
+        return runAndFrequencyResource;
     }
 
 
