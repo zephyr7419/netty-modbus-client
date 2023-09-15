@@ -2,6 +2,7 @@ package com.example.NettyClient.test;
 
 import io.netty.bootstrap.Bootstrap;
 import io.netty.buffer.ByteBuf;
+import io.netty.buffer.Unpooled;
 import io.netty.channel.*;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.SocketChannel;
@@ -19,8 +20,80 @@ public class Main {
     private static final String SERVER_HOST = "172.30.1.233";
     private static final int SERVER_PORT = 5300;
 
+    public static void main(String[] args) {
+        NioEventLoopGroup group = new NioEventLoopGroup();
+        try {
+            Bootstrap bootstrap = new Bootstrap();
+            bootstrap.group(group)
+                    .channel(NioSocketChannel.class)
+                    .handler(new ChannelInitializer<SocketChannel>() {
+                        @Override
+                        protected void initChannel(@NotNull SocketChannel ch) throws Exception {
+                            ChannelPipeline pipeline = ch.pipeline();
 
-    public static byte[] calculateCRC16Modbus(byte[] data) {
+                            pipeline.addLast("modbusEncoder", new ModbusRTUEncoder());
+                            pipeline.addLast("modbusDecoder", new ModbusRTUDecoder());
+
+                            pipeline.addLast("responseHandler", (ChannelHandler) new HexProtocolClientHandler());
+                        }
+                    });
+
+            Channel channel = bootstrap.connect(SERVER_HOST, SERVER_PORT).sync().channel();
+
+            if (channel.isActive()) {
+                int[] addressArray = {0x0304, 0x0006};
+                int[] countArray = {0x0002, 0x0007};
+                for (int i = 0; i < addressArray.length; i++) {
+                    ByteBuf request = Unpooled.buffer();
+                    byte[] modbusRequest = buildModbusRequest(addressArray[i], countArray[i]);
+                    request.writeBytes(modbusRequest);
+
+                    if (channel.writeAndFlush(request).isSuccess()) {
+                        log.info("send to Modbus RTU Request: {}", byteArrayToHexString(modbusRequest));
+                    }
+
+                    Thread.sleep(5000);
+                }
+
+
+
+//            if (channel.isActive()) {
+//                // 연결 성공 로그
+//
+//                log.info("Connected to : {} : {}", SERVER_HOST, SERVER_PORT);
+//                ByteBuf buf = Unpooled.buffer();
+//
+////                byte[] modbusRequest1 = buildModbusRequest(0x0310, 0x0004);
+////                buf.writeBytes(modbusRequest1);
+////                if (channel.writeAndFlush(buf).isSuccess()) {
+////                    log.info("send to Modbus RTU Request: {}", byteArrayToHexString(modbusRequest1));
+////                }
+//
+////                byte[] modbusRequest2 = buildModbusRequest(0x0009, 0x0008);
+////                buf.writeBytes(modbusRequest2);
+////                if (channel.writeAndFlush(buf).isSuccess()) {
+////                    log.info("send to Modbus RTU Request: {}", byteArrayToHexString(modbusRequest2));
+////                }
+////
+////
+                byte[] modbusWriteRequest = writeModbusRequest(0x0382, 0x0002, 0x0032, 0x0064);
+                ByteBuf request = Unpooled.buffer();
+                request.writeBytes(modbusWriteRequest);
+                if (channel.writeAndFlush(request).isSuccess()) {
+                    log.info("send to Modbus RTU Write Request: {}", byteArrayToHexString(modbusWriteRequest));
+                }
+//
+//                channel.closeFuture().sync();
+//            }
+
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
+    }
+
+        public static byte[] calculateCRC16Modbus(byte[] data) {
         int crc = 0xFFFF;
         int polynomial = 0xA001;
 
@@ -63,50 +136,11 @@ public class Main {
         return sb.toString().trim();
     }
 
-    public static void main(String[] args) {
-
-        NioEventLoopGroup group = new NioEventLoopGroup();
-        try {
-            Bootstrap bootstrap = new Bootstrap();
-            bootstrap.group(group)
-                    .channel(NioSocketChannel.class)
-                    .handler(new ChannelInitializer<SocketChannel>() {
-                        @Override
-                        protected void initChannel(@NotNull SocketChannel ch) throws Exception {
-                            ChannelPipeline pipeline = ch.pipeline();
-
-                            pipeline.addLast("modbusEncoder", new ModbusRTUEncoder());
-                            pipeline.addLast("modbusDecoder", new ModbusRTUDecoder());
-
-                            pipeline.addLast("responseHandler", new HexProtocolClientHandler());
-                        }
-                    });
-
-            Channel channel = bootstrap.connect(SERVER_HOST, SERVER_PORT).sync().channel();
-
-            if (channel.isActive()) {
-                // 연결 성공 로그
-                log.info("Connected to : {} : {}", SERVER_HOST, SERVER_PORT);
-                byte[] modbusRequest = buildModbusRequest(0x0300, 0x0001);
-                ByteBuf buf = channel.alloc().buffer();
-                buf.writeBytes(modbusRequest);
-
-                if (channel.writeAndFlush(buf).isSuccess()) {
-                    log.info("send to Modbus RTU Request: {}", byteArrayToHexString(modbusRequest));
-                }
-                channel.closeFuture().sync();
-            }
-
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-        }
-
-    }
 
     private static byte[] buildModbusRequest(int address, int quantity) {
         byte[] a1 = new byte[6];
         a1[0] = 1;
-        a1[1] = 6;
+        a1[1] = 4;
         a1[2] = (byte) ((address >> 8) & 0xFF);
         a1[3] = (byte) (address & 0xFF);
         a1[4] = (byte) ((quantity >> 8) & 0xFF);
@@ -115,7 +149,7 @@ public class Main {
         byte[] crc16Modbus = calculateCRC16Modbus(a1);
         byte[] a2 = new byte[8];
         a2[0] = 1;
-        a2[1] = 6;
+        a2[1] = 4;
         a2[2] = (byte) ((address >> 8) & 0xFF);
         a2[3] = (byte) (address & 0xFF);
         a2[4] = (byte) ((quantity >> 8) & 0xFF);
@@ -131,7 +165,42 @@ public class Main {
         return a2;
     }
 
+    private static byte[] writeModbusRequest(int address, int count, int value1, int value2) {
+        byte[] a1 = new byte[11];
+        a1[0] = 1;
+        a1[1] = 0x10;
+        a1[2] = (byte) ((address >> 8) & 0xFF);
+        a1[3] = (byte) (address & 0xFF);
+        a1[4] = (byte) ((count >> 8) & 0xFF);
+        a1[5] = (byte) (count & 0xFF);
+        a1[6] = 0x04;
+        a1[7] = (byte) ((value1 >> 8) & 0xFF);;
+        a1[8] = (byte) (value1 & 0xFF);
+        a1[9] = (byte) ((value2 >> 8) & 0xFF);;
+        a1[10] = (byte) (value2 & 0xFF);
 
+        byte[] crc16Modbus = calculateCRC16Modbus(a1);
+        byte[] a2 = new byte[13];
+
+        a2[0] = 1;
+        a2[1] = 0x10;
+        a2[2] = (byte) ((address >> 8) & 0xFF);
+        a2[3] = (byte) (address & 0xFF);
+        a2[4] = (byte) ((count >> 8) & 0xFF);
+        a2[5] = (byte) (count & 0xFF);
+        a2[6] = 0x04;
+        a2[7] = (byte) ((value1 >> 8) & 0xFF);;
+        a2[8] = (byte) (value1 & 0xFF);
+        a2[9] = (byte) ((value2 >> 8) & 0xFF);;
+        a2[10] = (byte) (value2 & 0xFF);
+        a2[11] = crc16Modbus[0];
+        a2[12] = crc16Modbus[1];
+
+        log.info("value: {}", byteArrayToHexString(crc16Modbus));
+
+        log.info("request: {}", byteArrayToHexString(a2));
+        return a2;
+    }
 
     private static class ModbusRTUEncoder extends MessageToByteEncoder<byte[]> {
 
@@ -156,8 +225,6 @@ public class Main {
                     // 여기에서 responseData를 파싱하여 필요한 데이터를 추출할 수 있습니다.
                     // 추출한 데이터를 처리하는 코드를 추가하세요.
                     parseAndLogResponse(responseData);
-
-                    ReferenceCountUtil.release(response);
                 }
             }
         }
@@ -187,23 +254,38 @@ public class Main {
             byte lo = response[dataStartIndex + 1];
             int value = ((hi & 0xFF) << 8) | (lo & 0xFF);
 
-            // 데이터에 따라 파싱하여 로그 출력
-            switch (dataStartIndex) {
-                case 3 -> // 첫 번째 값
-                        log.info("인버터 용량: {},0x{}", formatInverterCapacity(value), Integer.toHexString(value));
-                case 5 -> // 두 번째 값
-                        log.info("인버터 입력 전압/전원형태: {}, 0x{}", formatInputVoltage(value), Integer.toHexString(value));
-                case 7 -> // 세 번째 값
-                        log.info("인버터 S/W 버전: {}, 0x{}", formatSoftwareVersion(value), Integer.toHexString(value));
-                case 9 -> // 네 번째 값
-                        log.info("인버터 용량: {}, 0x{}", formatHP(value), Integer.toHexString(value));
-                case 11 ->
-                    log.info("운전상태 : {}, {}", runStatus(value), Integer.toHexString(value));
-                case 13 ->
-                    log.info("운전, 주파수 지령 소스: {}, {}", runAndFrequencyResource(value), Integer.toHexString(value) );
-                default -> {
+            if (byteCount == 0x04) {
+                // 데이터에 따라 파싱하여 로그 출력
+                switch (dataStartIndex) {
+                    case 3 -> // 첫 번째 값
+                            log.info("운전상태: {},0x{}", runStatus(value), Integer.toHexString(value));
+                    case 5 -> // 두 번째 값
+                            log.info("운전, 주파수 지령 소스: {}, 0x{}", runAndFrequencyResource(value), Integer.toHexString(value));
+                    default -> {
+                    }
+                    // 추가 파싱이 필요한 경우 여기에 추가합니다.
                 }
-                // 추가 파싱이 필요한 경우 여기에 추가합니다.
+
+            } else {
+                switch (dataStartIndex) {
+                    case 3 ->
+                        log.info("가속 시간: {}, {}", (value * 0.1) + "sec", Integer.toHexString(value));
+                    case 5 ->
+                        log.info("감속 시간: {}, {}", (value * 0.1) + "sec", Integer.toHexString(value));
+                    case 7 ->
+                        log.info("출력 전류: {}, {}", (value * 0.1) + "A", Integer.toHexString(value));
+                    case 9 ->
+                        log.info("출력 주파수: {},{}", (value * 0.01) + "Hz", Integer.toHexString(value));
+                    case 11 ->
+                        log.info("출력 전압: {}, {}", value + "V", Integer.toHexString(value));
+                    case 13 ->
+                        log.info("DC 링크 전압: {}, {}", value + "V", Integer.toHexString(value));
+                    case 15 ->
+                        log.info("출력 전력: {}, {}", (value * 0.1) + "kW", Integer.toHexString(value));
+                    default -> {
+                        log.info("Undefined Value: {}", Integer.toHexString(value));
+                    }
+                }
             }
 
             // 데이터 인덱스를 2바이트씩 증가시킴
@@ -228,7 +310,7 @@ public class Main {
             case 0x4015 -> "1.5kW";
             case 0x40f0 -> "15kW";
             // 다른 용량에 대한 처리 추가
-            default -> "Unknown Capacity";
+            default -> value * 0.1 + "A";
         };
         return capacity;
     }
@@ -241,7 +323,7 @@ public class Main {
             case 0x0231 -> "200V 3상 강냉식";
             case 0x0431 -> "400V 3상 강냉식";
             // 다른 전압/전원 형태에 대한 처리 추가
-            default -> "Unknown Voltage/Power Type";
+            default -> value * 0.01 + "Hz";
         };
         return voltageType;
     }
@@ -254,7 +336,7 @@ public class Main {
             case 0x0064 -> "version 1.00";
             case 0x0065 -> "version 1.01";
             // 다른 버전에 대한 처리 추가
-            default -> "Unknown Version";
+            default -> value + "Rpm";
         };
         return version;
     }
@@ -356,8 +438,6 @@ public class Main {
 
         return runAndFrequencyResource;
     }
-
-
 
 }
 
