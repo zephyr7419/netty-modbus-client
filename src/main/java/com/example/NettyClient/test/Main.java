@@ -9,7 +9,6 @@ import io.netty.channel.socket.SocketChannel;
 import io.netty.channel.socket.nio.NioSocketChannel;
 import io.netty.handler.codec.ByteToMessageDecoder;
 import io.netty.handler.codec.MessageToByteEncoder;
-import io.netty.util.ReferenceCountUtil;
 import lombok.extern.slf4j.Slf4j;
 import org.jetbrains.annotations.NotNull;
 
@@ -34,7 +33,7 @@ public class Main {
                             pipeline.addLast("modbusEncoder", new ModbusRTUEncoder());
                             pipeline.addLast("modbusDecoder", new ModbusRTUDecoder());
 
-                            pipeline.addLast("responseHandler", (ChannelHandler) new HexProtocolClientHandler());
+                            pipeline.addLast("responseHandler", new HexProtocolClientHandler());
                         }
                     });
 
@@ -76,7 +75,7 @@ public class Main {
 ////                }
 ////
 ////
-                byte[] modbusWriteRequest = writeModbusRequest(0x0382, 0x0002, 0x0032, 0x0064);
+                byte[] modbusWriteRequest = writeModbusRequest(0x0380, 0x0004, 0x0030, 0x0000, 0x0000, 0x0000);
                 ByteBuf request = Unpooled.buffer();
                 request.writeBytes(modbusWriteRequest);
                 if (channel.writeAndFlush(request).isSuccess()) {
@@ -165,22 +164,26 @@ public class Main {
         return a2;
     }
 
-    private static byte[] writeModbusRequest(int address, int count, int value1, int value2) {
-        byte[] a1 = new byte[11];
+    private static byte[] writeModbusRequest(int address, int count, int value1, int value2, int value3, int value4) {
+        byte[] a1 = new byte[15];
         a1[0] = 1;
         a1[1] = 0x10;
         a1[2] = (byte) ((address >> 8) & 0xFF);
         a1[3] = (byte) (address & 0xFF);
         a1[4] = (byte) ((count >> 8) & 0xFF);
         a1[5] = (byte) (count & 0xFF);
-        a1[6] = 0x04;
+        a1[6] = 0x08;
         a1[7] = (byte) ((value1 >> 8) & 0xFF);;
         a1[8] = (byte) (value1 & 0xFF);
         a1[9] = (byte) ((value2 >> 8) & 0xFF);;
         a1[10] = (byte) (value2 & 0xFF);
+        a1[11] = (byte) ((value3 >> 8) & 0xFF);;
+        a1[12] = (byte) (value3 & 0xFF);
+        a1[13] = (byte) ((value4 >> 8) & 0xFF);;
+        a1[14] = (byte) (value4 & 0xFF);
 
         byte[] crc16Modbus = calculateCRC16Modbus(a1);
-        byte[] a2 = new byte[13];
+        byte[] a2 = new byte[17];
 
         a2[0] = 1;
         a2[1] = 0x10;
@@ -188,13 +191,17 @@ public class Main {
         a2[3] = (byte) (address & 0xFF);
         a2[4] = (byte) ((count >> 8) & 0xFF);
         a2[5] = (byte) (count & 0xFF);
-        a2[6] = 0x04;
+        a2[6] = 0x08;
         a2[7] = (byte) ((value1 >> 8) & 0xFF);;
         a2[8] = (byte) (value1 & 0xFF);
         a2[9] = (byte) ((value2 >> 8) & 0xFF);;
         a2[10] = (byte) (value2 & 0xFF);
-        a2[11] = crc16Modbus[0];
-        a2[12] = crc16Modbus[1];
+        a2[11] = (byte) ((value3 >> 8) & 0xFF);;
+        a2[12] = (byte) (value3 & 0xFF);
+        a2[13] = (byte) ((value4 >> 8) & 0xFF);;
+        a2[14] = (byte) (value4 & 0xFF);
+        a2[15] = crc16Modbus[0];
+        a2[16] = crc16Modbus[1];
 
         log.info("value: {}", byteArrayToHexString(crc16Modbus));
 
